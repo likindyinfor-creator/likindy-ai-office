@@ -1,0 +1,27 @@
+# Environment files and local credentials
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# Dependencies and generated frontend output
+/node_modules/
+**/node_modules/
+/.next/
+/out/
+/build/
+/dist/
+/coverage/
+
+# Laravel dependencies, cache, logs, and local uploads
+/backend/vendor/
+/backend/.phpunit.cache/
+/backend/.phpunit.result.cache
+/backend/bootstrap/cache/*.php
+/backend/public/build/
+/backend/public/storage
+/backend/storage/app/private/
+/backend/storage/app/document-attachments-private/
+/backend/storage/logs/*.log
