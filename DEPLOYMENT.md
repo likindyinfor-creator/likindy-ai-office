@@ -119,7 +119,9 @@ The Docker entrypoint validates the platform's numeric `$PORT`, prepares
 writable Laravel runtime directories, and starts Apache on that port. It does
 not invoke Artisan, generate keys, run migrations, or start a queue worker. The
 Docker build also disables Composer scripts and runs only Laravel package
-discovery (not migrations or seeding). Render's ingress is
+discovery (not migrations or seeding). The entrypoint rejects arbitrary
+container commands; its only supported override is `php artisan queue:work`
+for a separately configured background worker. Render's ingress is
 trusted only for forwarded client IP/port/protocol headers; forwarded host is
 not trusted. Use `TRUSTED_PROXIES=*` only while the service is exclusively
 reachable through Render's proxy layer and that layer overwrites forwarded
