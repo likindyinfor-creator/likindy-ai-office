@@ -1,10 +1,6 @@
 #!/bin/sh
 set -eu
 
-if [ "$#" -gt 0 ]; then
-    exec "$@"
-fi
-
 : "${PORT:=10000}"
 case "$PORT" in
     ''|*[!0-9]*) echo "PORT must be a numeric TCP port." >&2; exit 1 ;;
@@ -21,6 +17,15 @@ mkdir -p \
     /var/www/html/storage/logs \
     /var/www/html/bootstrap/cache
 chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+
+if [ "$#" -gt 0 ]; then
+    if [ "${1:-}" = "php" ] && [ "${2:-}" = "artisan" ] && [ "${3:-}" = "queue:work" ]; then
+        exec "$@"
+    fi
+
+    echo "Unsupported container command. Only the queue worker may override the web server." >&2
+    exit 64
+fi
 
 printf 'Listen %s\n' "$PORT" > /etc/apache2/ports.conf
 cat > /etc/apache2/sites-available/000-default.conf <<EOF
