@@ -41,4 +41,23 @@ cat > /etc/apache2/sites-available/000-default.conf <<EOF
 </VirtualHost>
 EOF
 
+printf '%s\n' '=== APACHE RUNTIME DIAGNOSTICS ==='
+printf '%s\n' 'Enabled module directory entries (symlink targets included):'
+ls -la /etc/apache2/mods-enabled/ 2>&1 || true
+
+printf '%s\n' 'Loaded Apache modules (apache2ctl -M):'
+if apache2ctl -M 2>&1; then
+    :
+else
+    diagnostic_status=$?
+    printf 'apache2ctl -M failed with exit status %s; continuing startup attempt.\n' "$diagnostic_status"
+fi
+
+printf '%s\n' 'Apache/PHP/MPM environment variable names:'
+env | cut -d= -f1 | grep -Ei 'apache|php|mpm' || true
+
+printf '%s\n' 'MPM LoadModule directives in Apache configuration:'
+grep -RniE '^[[:space:]]*LoadModule[[:space:]]+mpm_[[:alnum:]_]+_module([[:space:]]|$)' \
+    /etc/apache2 2>&1 || true
+
 exec apache2-foreground
