@@ -15,16 +15,28 @@ to `NEXT_PUBLIC_*` variables.
 
 1. Provision the private Supabase database and private R2 bucket; enable HTTPS
    access and keep the R2 bucket's public access disabled.
-2. Create the Render web service from this repository with **Root Directory**
-   set to `backend` and **Dockerfile Path** set to `Dockerfile`. Configure the
-   environment variables below. Set Render's health check path to
-   `/api/v1/health`.
+2. Create the Render web service from the repository root with **Root
+   Directory** set to the repository root and **Dockerfile Path** set to
+   `backend/Dockerfile`. Railway is pinned to the same image by
+   `railway.toml` (`builder = "DOCKERFILE"` and `dockerfilePath =
+   "backend/Dockerfile"`); do not select Railpack or override the Dockerfile
+   with a custom startup command. Configure environment variables below and set
+   the health check path to `/api/v1/health`.
+   Railway's `railway.toml` is Config-as-Code for an existing legacy service;
+   Railway documents that this configuration stops being read after
+   2026-12-01. Before that cutoff, migrate the service to Railway's supported
+   Infrastructure-as-Code configuration or explicitly select this Dockerfile
+   in the service settings. This repository configuration cannot verify or
+   change a remote Railway service's current settings by itself.
 3. Generate an application key with `php artisan key:generate --show` in a
    trusted local PHP/Laravel environment and add it as Render's `APP_KEY`.
    Never commit the generated value.
-4. Run `php artisan migrate --force` once as a controlled release step, only
-   after confirming the Supabase database identity and backup/restore plan.
-   The container entrypoint deliberately does not run migrations.
+4. Only after an authorized operator explicitly approves the target database
+   and release, run `php artisan migrate --force` as a separate one-off
+   deployment operation. Never attach it to build, release, or container-start
+   commands. Do not seed production data automatically; any seed operation
+   requires its own explicit authorization and separate operation. The Docker
+   build and entrypoint do not run migrations or seeders.
 5. Deploy the Vercel project from the repository root and set
    `LARAVEL_BACKEND_URL` to the Render service origin (scheme and host only,
    with no trailing slash or path). Deploy the frontend on HTTPS.
@@ -103,9 +115,13 @@ credentials enabled and origins explicit. The session cookie should remain
 host-only, `Secure`, `HttpOnly`, and `SameSite=Lax`; Laravel's `XSRF-TOKEN`
 cookie remains readable by the first-party client for the CSRF header.
 
-The Docker entrypoint validates Render's numeric `$PORT`, prepares writable
-Laravel runtime directories, and starts Apache on that port. It does not
-generate keys, run migrations, or start a queue worker. Render's ingress is
+The Docker entrypoint validates the platform's numeric `$PORT`, prepares
+writable Laravel runtime directories, and starts Apache on that port. It does
+not invoke Artisan, generate keys, run migrations, or start a queue worker. The
+Docker build also disables Composer scripts and runs only Laravel package
+discovery (not migrations or seeding). The entrypoint rejects arbitrary
+container commands; its only supported override is `php artisan queue:work`
+for a separately configured background worker. Render's ingress is
 trusted only for forwarded client IP/port/protocol headers; forwarded host is
 not trusted. Use `TRUSTED_PROXIES=*` only while the service is exclusively
 reachable through Render's proxy layer and that layer overwrites forwarded
