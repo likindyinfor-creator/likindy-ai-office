@@ -35,4 +35,15 @@ class ContainerStartupTest extends TestCase
         $this->assertStringContainsString('builder = "DOCKERFILE"', $railwayConfig);
         $this->assertStringContainsString('dockerfilePath = "backend/Dockerfile"', $railwayConfig);
     }
+
+    public function test_apache_build_enables_only_the_prefork_mpm(): void
+    {
+        $dockerfile = file_get_contents(dirname(__DIR__, 2).'/Dockerfile');
+
+        $this->assertStringContainsString('a2dismod "$module"', $dockerfile);
+        $this->assertStringContainsString('for module in mpm_event mpm_worker', $dockerfile);
+        $this->assertStringContainsString('a2enmod mpm_prefork headers rewrite', $dockerfile);
+        $this->assertStringContainsString('/etc/apache2/mods-enabled/mpm_prefork.load', $dockerfile);
+        $this->assertStringContainsString('/etc/apache2/mods-enabled -maxdepth 1 -name', $dockerfile);
+    }
 }

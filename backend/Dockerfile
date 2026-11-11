@@ -17,7 +17,14 @@ RUN apt-get update \
         pdo_pgsql \
         pgsql \
         zip \
-    && a2enmod headers rewrite \
+    && for module in mpm_event mpm_worker; do \
+        if [ -e "/etc/apache2/mods-enabled/${module}.load" ]; then \
+            a2dismod "$module"; \
+        fi; \
+    done \
+    && a2enmod mpm_prefork headers rewrite \
+    && test -e /etc/apache2/mods-enabled/mpm_prefork.load \
+    && test "$(find /etc/apache2/mods-enabled -maxdepth 1 -name 'mpm_*.load' | wc -l)" -eq 1 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
