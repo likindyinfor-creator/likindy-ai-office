@@ -41,17 +41,58 @@ cat > /etc/apache2/sites-available/000-default.conf <<EOF
 </VirtualHost>
 EOF
 
+for module in mpm_event mpm_worker; do
+    rm -f "/etc/apache2/mods-enabled/${module}.load" \
+        "/etc/apache2/mods-enabled/${module}.conf"
+done
+
+a2enmod mpm_prefork
+
+enabled_mpm_count=0
+enabled_mpm=
+for module_file in /etc/apache2/mods-enabled/*.load; do
+    [ -e "$module_file" ] || continue
+    module=${module_file##*/}
+    case "$module" in
+        mpm_*.load)
+            enabled_mpm_count=$((enabled_mpm_count + 1))
+            enabled_mpm=$module
+            ;;
+    esac
+done
+
+if [ "$enabled_mpm_count" -ne 1 ] || [ "$enabled_mpm" != "mpm_prefork.load" ]; then
+    printf 'Apache startup aborted: expected only mpm_prefork.load, found %s MPM module(s); last found: %s\n' \
+        "$enabled_mpm_count" "${enabled_mpm:-none}" >&2
+    ls -la /etc/apache2/mods-enabled/ >&2 || true
+    exit 1
+fi
+
+if ! apache2ctl -t >/dev/null 2>&1; then
+    printf '%s\n' 'Apache startup aborted: apache2ctl -t configuration validation failed.' >&2
+    exit 1
+fi
+
+if ! loaded_modules=$(apache2ctl -M 2>&1); then
+    printf '%s\n' 'Apache startup aborted: apache2ctl -M could not list loaded modules.' >&2
+    exit 1
+fi
+
+loaded_mpms=$(printf '%s\n' "$loaded_modules" \
+    | awk '/^[[:space:]]*mpm_[[:alnum:]_]+_module[[:space:]]+\((shared|static)\)$/ { sub(/^[[:space:]]+/, ""); print $1 }')
+loaded_mpm_count=$(printf '%s\n' "$loaded_mpms" | awk 'NF { count++ } END { print count + 0 }')
+
+if [ "$loaded_mpm_count" -ne 1 ] || [ "$loaded_mpms" != "mpm_prefork_module" ]; then
+    printf 'Apache startup aborted: expected only mpm_prefork_module; found %s loaded MPM module(s): %s\n' \
+        "$loaded_mpm_count" "${loaded_mpms:-none}" >&2
+    exit 1
+fi
+
 printf '%s\n' '=== APACHE RUNTIME DIAGNOSTICS ==='
 printf '%s\n' 'Enabled module directory entries (symlink targets included):'
 ls -la /etc/apache2/mods-enabled/ 2>&1 || true
 
-printf '%s\n' 'Loaded Apache modules (apache2ctl -M):'
-if apache2ctl -M 2>&1; then
-    :
-else
-    diagnostic_status=$?
-    printf 'apache2ctl -M failed with exit status %s; continuing startup attempt.\n' "$diagnostic_status"
-fi
+printf 'Loaded Apache MPM: %s\n' "$loaded_mpms"
 
 printf '%s\n' 'Apache/PHP/MPM environment variable names:'
 env | cut -d= -f1 | grep -Ei 'apache|php|mpm' || true
